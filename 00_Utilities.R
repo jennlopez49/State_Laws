@@ -1,0 +1,114 @@
+##### CLEAN & PREP      ------------------------------------------------------
+# required pkgs 
+library(pdftools)
+library(tidyverse)
+library(stringr)
+library(dplyr)
+library(purrr)
+
+# cleaning -- automating -----------------
+
+## clean function
+process_pdf_file <- function(text_list) {
+  # Step 1: Collapse all columns into a single string
+  full_text <- paste(text_list, collapse = " ")
+  
+  # Step 2: Remove the initial unwanted line (everything before the first state name)
+  full_text <- sub(".*?\\b(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|District of Columbia|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming)\\b", 
+                   "\\1", full_text)
+  
+  # Step 3: Clean the text
+  cleaned_text <- full_text %>%
+    str_replace_all("\\n", " ") %>%  # Remove all newlines
+    str_squish() %>%  # Remove extra spaces
+    gsub("[\n\r\t]", " ", .) %>%  # Remove all newlines, tabs, etc.
+    gsub("\\s+", " ", .) %>%  # Collapse multiple spaces into a single space
+    gsub("\"", "", .)  # Remove rogue quotes
+  
+  # Step 4: Split into individual bills (keeping "Click for History" attached)
+  bill_texts <- str_split(cleaned_text, "(?<=History: Click for History)\\s*", simplify = FALSE)[[1]]
+  
+  return(bill_texts)
+}
+
+
+# alt topic code   # Extract topic (between "Topics:" and "Summary:")
+# topic_pattern <- "Topics:\\s*(.*?)\\s*Summary:"
+# topic_match <- str_match(bill_text, topic_pattern)
+# topic <- ifelse(!is.na(topic_match[,2]), topic_match[,2], NA)
+
+# label function ------------
+clean_and_extract_bill <- function(text) {
+  state <- str_match(text, "([A-Z]{2})\\s")[,2]  # Extracts 2 uppercase letters for state abbreviation
+  bill_number <- str_match(text, "\\b(?:[A-Z]{2,3} [A-Z]+ \\d{1,6})\\s+(\\d{4})\\b")[,1]  # Extracts bill number
+  year <- str_match(bill_number, "(\\d{4})$")[,2]  # Extracts year
+  title <- str_match(text, "\\d{4}\\s+(.*?)\\s*Status:")[,2]  # Extracts title
+  status <- str_match(text, "Status:\\s(.*?)\\sDate of Last Action:")[,2]  # Extracts status
+  topics <- str_match(text, "Topics:\\s(.*?)\\sSummary:")[,2]
+  summary <- str_match(text, "Summary:\\s(.*?)\\sHistory:")[,2]  # Extracts summary
+  
+  
+  # Ensure missing values return empty strings
+  return(tibble(
+    State = str_squish(state),
+    Bill_Number = str_squish(bill_number),
+    Year = str_squish(year),
+    Title = str_squish(title),
+    Status = str_squish(status),
+    Topic = str_squish(topics),
+    Summary = str_squish(summary),
+    Full_Text = text
+  ))
+}
+
+
+##### Automating through list of pdfs -----------------------------------------
+
+generalpath <- "Data_Immigration_Bills_2012_2020/"
+namesof.files <- c("BillsAdopted", "BillsEnacted")
+listofyears <- c(2012:2020)
+file_combinations <- expand.grid(name = namesof.files, year = listofyears)
+## creating the paths & storing them
+file_paths <- paste0(generalpath, file_combinations$name, "_", file_combinations$year, ".pdf")
+# final_data <- list()
+# Loop through each PDF file
+final_data <- list()  # Initialize an empty list to store extracted data
+
+for (i in seq_along(file_paths)) {
+  file_path <- file_paths[i]
+  tryCatch({
+    # Step 1: Read the PDF file
+    pdf_text <- pdf_text(file_path)
+    
+    # Step 2: Preprocess the text
+    preprocessed_text <- process_pdf_file(pdf_text)
+    
+    # Step 3: Extract structured information
+    extracted_data <- map_dfr(preprocessed_text, clean_and_extract_bill)
+    
+    # Step 4: Save the preprocessed text (optional)
+    preprocessed_file <- gsub(".pdf", "_preprocessed.txt", file_path)
+    write_lines(preprocessed_text, preprocessed_file)
+    
+    # Step 5: Append the extracted data to the final dataset
+    final_data[[i]] <- extracted_data  # Store each dataset in a list
+    
+    # Message to track progress
+    if (any(is.na(extracted_data))) {
+      message("Processed file ", i, ": NAs detected in ", file_path)
+    } else {
+      message("Processed file ", i, ": No issues detected in ", file_path)
+    }
+    
+  }, error = function(e) {
+    # If an error occurs, print an error message
+    message("Error processing file ", i, ": ", file_path, " - ", e$message)
+  })
+}
+
+# Combine all extracted data into one final dataset
+final_dataset <- bind_rows(final_data)
+
+### OUTPUT ---- CSV FILE 
+
+write.csv(final_dataset, "final_bills_data.csv")
