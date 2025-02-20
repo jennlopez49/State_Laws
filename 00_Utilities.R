@@ -5,6 +5,13 @@ library(tidyverse)
 library(stringr)
 library(dplyr)
 library(purrr)
+library(quanteda)
+library(readxl)
+library(tidymodels)
+library(tidytext)
+library(tm)
+library(recipes)
+library(modeldata)
 
 # cleaning -- automating -----------------
 
