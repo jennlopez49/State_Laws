@@ -12,7 +12,18 @@ library(tidytext)
 library(tm)
 library(recipes)
 library(modeldata)
-
+library(textrecipes)
+library(glmnet)
+library(tune)
+library(e1071)
+library(textclean)
+library(caret)
+library(SnowballC)
+library(textstem)
+library(topicmodels)
+library(syuzhet)
+library(rJava)
+library(coreNLP)
 # cleaning -- automating -----------------
 
 ## clean function

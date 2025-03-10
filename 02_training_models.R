@@ -155,5 +155,23 @@ conf_mat <- conf_mat(test, truth = Class, estimate = .pred_class)
 conf_mat
 
 
+################ TRYING ANOTHER WAY N-GRAMS --------------
+#write.csv(test_set, "test_set.csv")
+training_set_clean$Class <- as.factor(training_set_clean$Class)
+
+# Modify your recipe for n-grams
+recipe <- recipe(Class ~ ., data = training_set_clean) %>%
+  step_select(-c(Bill_Number, Title, Vetoed, Full_Text, Status, Topic)) %>%
+  step_tokenize(Summary, n = 2) %>% # Bigrams
+  step_stopwords(Summary) %>%
+  step_tfidf(Summary) %>%
+  step_novel(State) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+# Random Forest model
+rf_model <- randomForest(Class ~ ., data = training_set_clean, ntree = 500)
+
+# Fit the Random Forest model
+print(rf_model)
 
 

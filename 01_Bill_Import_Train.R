@@ -15,3 +15,16 @@ training_set <- cleaned_bill_data %>% sample_n(400)
 
 ### write csv file to manually code 
 write.csv(training_set, "bill_training_set.csv")
+
+### Pulling out under-sampled anti-imm bills -----------------------------------
+
+test <- cleaned_bill_data %>% filter(!(Bill_Number %in% training_set$Bill_Number))
+
+keywords <- c("illegal", "unlawful", "border security", "enforcement", 
+              "E-verify", "ICE", "deportation", "aliens", "alien")
+
+# Sample bills based on these keywords
+sampled_data <- test %>%
+  filter(str_detect(Summary, paste(keywords, collapse = "|")))
+
+write.csv(sampled_data, "anti_sampled.csv")
