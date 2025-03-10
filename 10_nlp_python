@@ -1,0 +1,94 @@
+import stanza
+import pandas as pd
+from transformers import pipeline
+from sklearn.metrics import accuracy_score
+import os
+
+# Download the English model
+stanza.download('en')
+nlp = stanza.Pipeline('en')
+
+# Initialize the pipeline for English
+file_path = '~/Desktop/COIi work/State_Laws/cleaned_text_set.csv'
+cleaned_bills = pd.read_csv(file_path)
+print(cleaned_bills.head())
+
+### DistilBERT ---- first trying
+sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased")
+# Example text
+text = "This immigration bill is a disaster for our community."
+
+# Get sentiment
+result = sentiment_analyzer(text)
+print(result)
+
+## now on bills ----
+cleaned_bills['sentiment'] = cleaned_bills['Summary'].apply(lambda x: sentiment_analyzer(x)[0])  # Extract the first result
+
+# Separate out the label and score into separate columns
+cleaned_bills['sentiment_label'] = cleaned_bills['sentiment'].apply(lambda x: x['label'])
+cleaned_bills['sentiment_score'] = cleaned_bills['sentiment'].apply(lambda x: x['score'])
+
+# Save the results to a new CSV
+output_file = os.path.expanduser('~/Desktop/COIi work/State_Laws/bills_with_sentiment.csv')
+cleaned_bills.to_csv(output_file, index=False)
+
+
+### Seeing accuracy score 
+# Step 2: Filter out resolutions (if necessary)
+resos = cleaned_bills[cleaned_bills['Summary'].str.contains(r'\bresolution\b', na=False)]
+resos_IDs = resos['Bill_Number']
+
+# Step 3: Create the cleaned_bills_only dataframe
+cleaned_bills_only = cleaned_bills[~cleaned_bills['Bill_Number'].isin(resos_IDs)]
+
+### Assigning classifications function ----
+def categorize_sentiment_pol(row):
+    score = row['sentiment_score']
+    if score > 0.75:
+        return 'P'
+    elif score < 0.25:
+        return 'A'
+    else:
+        return 'N'
+def categorize_sentiment_symb(row):
+    score = row['sentiment_score']
+    if score > 0.75:
+        return 'SP'
+    elif score < 0.25:
+        return 'SA'
+    else:
+        return 'N'
+
+cleaned_bills_only['categorized_sentiment'] = cleaned_bills_only.apply(categorize_sentiment_symb, axis=1)
+resos['categorized_sentiment'] = resos.apply(categorize_sentiment_pol, axis=1)
+
+
+print(cleaned_bills_only[['Bill_Number', 'sentiment_label', 'sentiment_score', 'categorized_sentiment']].head())
+# Exclude the first two columns using iloc
+cleaned_bills_excluded = cleaned_bills_only.iloc[:, 2:]
+
+
+full_set = pd.concat([cleaned_bills_excluded, resos], ignore_index=True)
+print(full_set.head())
+
+
+## Importing hand coded file
+code_file = '~/Desktop/COIi work/State_Laws/complete_training.csv'
+training = pd.read_csv(code_file)
+
+train_IDs = training['Bill_Number']
+train_pred = cleaned_bills_excluded[~cleaned_bills_excluded['Bill_Number'].isin(train_IDs)]
+
+comparison_df = pd.merge(train_pred[['Bill_Number', 'categorized_sentiment']], 
+                         training[['Bill_Number', 'Class']], 
+                         on='Bill_Number', how='inner')
+
+# Check if the predicted sentiment matches the actual sentiment
+comparison_df['match'] = comparison_df['categorized_sentiment'] == comparison_df['Class']
+
+# Calculate accuracy
+accuracy = comparison_df['match'].mean() * 100
+print(f"Accuracy: {accuracy:.2f}%")
+
+
