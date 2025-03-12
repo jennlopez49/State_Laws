@@ -8,6 +8,8 @@ extended_set<- extended_set[, colnames(training_set)]
 complete_training <- rbind(training_set, extended_set)
 complete_training$Class <- str_trim(complete_training$Class)
 training_set_clean <- complete_training[complete_training$Class != "I",]
+## write csv file
+write.csv(training_set_clean, "complete_training.csv")
 
 cleaned_bill_data <- bills_data %>% select(!Helper_Col) %>% na.omit()
 cleaned_bill_data <- cleaned_bill_data %>% filter(State != "PR")

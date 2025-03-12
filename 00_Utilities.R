@@ -24,6 +24,7 @@ library(topicmodels)
 library(syuzhet)
 library(rJava)
 library(coreNLP)
+library(spacyr)
 # cleaning -- automating -----------------
 
 ## clean function
