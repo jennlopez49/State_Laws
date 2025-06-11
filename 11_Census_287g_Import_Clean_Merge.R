@@ -5,12 +5,6 @@ hist287g  <- hist287g %>%
   mutate(Type_287g = str_trim(Type_287g)) %>%
   separate_rows(Type_287g, sep = ",\\s*")
 
-# Collapse Type_287g by Place, State, Year_Signed, and Last_Year
-type_287g_collapsed <- hist287g %>%
-  group_by(Place, State, Year_Signed, Last_Year) %>%
-  summarise(Type_287g = paste(unique(Type_287g), collapse = "; "), .groups = "drop")
-
-
 hist287g <- hist287g %>% 
   rename(Source = Ext.Source,
          Other_Source = ...9)
@@ -424,9 +418,6 @@ type287g <- hist287g %>%
   mutate(Place = ifelse(Type_Jurisdiction == "County", paste0(Place, " County"), Place)) %>% 
   select(Place, Year_Signed, Last_Year, Type_287g, State)
 
-
-Type_NAs <- fulL_hist_287g.clean %>% filter(is.na(Type_287g))
-
 updated_fl <- read_xlsx("ICE_Agreements_Historical.xlsx")
 updated_fl <- updated_fl %>% 
   mutate(Place = ifelse(Type_Jurisdiction == "County", paste0(Jurisdiction_name, " County"), Jurisdiction_name))
@@ -509,14 +500,26 @@ full_287g_data <- rbind(fulL_hist_287g.nodups, states.data.287g)
 library(sf)
 
 # Reconstruct geometry from WKT
-fulL_hist_287g <- fulL_hist_287g %>%
+final_hist_287g <- full_287g_data %>%
   mutate(geometry = st_as_sfc(geometry)) %>%
   st_as_sf()
 # checking 
-any(st_is_empty(fulL_hist_287g))
-any(!st_is_valid(fulL_hist_287g))
 
-st_write(fulL_hist_287g, "cleaned_287g_data.shp")
+
+sum(is.na(full_287g_data$geometry))
+any(st_is_empty(st_as_sfc(full_287g_data$geometry)))
+
+### NAs in geometry --> 
+nas_geometry <- full_287g_data %>% select(GEOID, Place, State, geometry) %>% filter(is.na(geometry))
+nas_geometry$geometry <- NA
+write.csv(nas_geometry, "nas_geometry.csv")
+
+### Inserting Filled Out GEo ----- >> ################ WIP RIGHT HERE -------->>>>>>>
+
+any(st_is_empty(final_hist_287g))
+any(!st_is_valid(final_hist_287g))
+
+st_write(final_hist_287g, "cleaned_287g_data.shp")
 
 
 ## Adding Census -------------------------------------------------------------->
@@ -606,6 +609,31 @@ clean_census <- clean_census %>% select(-c(B01003_001E, B03001_003E, B05002_013E
 write.csv(clean_census, "cleaned_census_data.csv")
 
 
-### Trying 
+### Trying to Merge Using Fuzzy Join -- didn't work, missing values
+
+# final_287g_data <- fuzzy_left_join(
+#   fulL_287g_data,
+#   clean_census,
+#   by = c("GEOID" = "GEOID", "Year_Signed" = "year",  "Last_Year" = "year"),
+#   match_fun = list(`==`, `>=`, `<=`)
+# )
+
+census_wide <- clean_census %>%
+  pivot_wider(id_cols = c("GEOID", "NAME"),
+    names_from = year,
+              values_from = c(total_juris_pop, percent_latino, percent_foreign),
+              names_sep = "_")
+
+merged_287g_data <- fulL_287g_data %>%
+  left_join(census_wide, by = "GEOID")
+
+# Create indicator for, say, 2020
+merged_data <- merged_data %>%
+  mutate(active_2020 = ifelse(Year_Signed <= 2020 & Last_Year >= 2020, 1, 0),
+         exp_2020 = case_when(
+           active_2020 == 1 & percent_latino_2020 > 0.25 ~ -1,
+           active_2020 == 1 ~ -0.5,
+           TRUE ~ 0
+         ))
 
 
