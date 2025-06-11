@@ -27,14 +27,16 @@ states <- states %>%
       Imm_Class_Full_2016 > -10 & Imm_Class_Full_2016 <= 0 ~ -0.5,  # Low Anti: score between -10 and 0
       Imm_Class_Full_2016 > 0 & Imm_Class_Full_2016 < 20 ~ 0.5,   # Low Pro: score between 0 and 20
       Imm_Class_Full_2016 >= 20 ~ 1,        # High Pro: score > 20
-    )
+    ),
+    Imm_Index = (Imm_Con_Index * -1),
+    Imm_Sym_Index_Reversed = (Imm_Sym_Index * -1)
     )
   
 
 
 map_2016 <- ggplot(data = states) +
-  geom_sf(aes(fill = Imm_Con_Index)) +
-  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0,
+  geom_sf(aes(fill = Imm_Index)) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
                        limits = c(-1, 1)) +
   theme_minimal() +
   labs(
@@ -51,8 +53,8 @@ map_2016 <- ggplot(data = states) +
   )
 
 map_2016_alt <- ggplot(data = states) +
-  geom_sf(aes(fill = Imm_Sym_Index)) +
-  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0,
+  geom_sf(aes(fill = Imm_Sym_Index_Reversed)) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
                        limits = c(-1, 1)) +
   theme_minimal() +
   labs(

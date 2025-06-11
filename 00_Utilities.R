@@ -22,7 +22,13 @@ library(SnowballC)
 library(textstem)
 library(topicmodels)
 library(syuzhet)
-
+library(stringdist)
+library(tigris)
+library(ggplot2)
+library(tidycensus)
+library(sf)
+library(glue)
+library(fuzzyjoin)
 # cleaning -- automating -----------------
 
 ## clean function
