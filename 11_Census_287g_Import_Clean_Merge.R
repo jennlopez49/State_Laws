@@ -267,109 +267,6 @@ fulL_hist_287g$geometry <- st_as_text(fulL_hist_287g$geometry)
 write.csv(fulL_hist_287g, "full_hist_287g.csv", row.names = FALSE)
 
 
-###### Subsetting & grouping by county / place ----
-grouped_juris <- fulL_hist_287g %>%
-  group_by(state_code, Geo) %>%
-  summarise(filter_codes = list(GEOID), .groups = "drop")
-
-###### Pulling the data --------------------------------------------------------
-get_acs_filtered <- function(state, geo, place_codes = NULL, county_codes = NULL,
-                             year_signed, last_year,
-                             vars = c("B01003_001", "B03001_003", "B05002_013"),
-                             acs_years = c(2010, 2016, 2020, 2023)) {
-  
-  valid_years <- acs_years[acs_years >= year_signed & acs_years <= last_year]
-  
-  if (length(valid_years) == 0) {
-    message(glue::glue("⏩ Skipping {geo}, {state} – no ACS years fall within {year_signed}–{last_year}"))
-    return(NULL)
-  }
-  
-  acs_list <- list()
-  
-  for (yr in valid_years) {
-    tryCatch({
-      df <- get_acs(
-        geography = geo,
-        variables = vars,
-        year = yr,
-        state = state,
-        survey = "acs5",
-        output = "wide"
-      ) %>%
-        mutate(geo = geo, state_code = state, year = yr) %>%
-        mutate(GEOID = as.character(GEOID))
-      
-      if (geo == "place" & !is.null(place_codes)) {
-        # place_codes should be character vector of full GEOIDs (state + place code)
-        place_codes <- as.character(place_codes)
-        df_filtered <- df %>% filter(GEOID %in% place_codes)
-        acs_list[[as.character(yr)]] <- df_filtered
-        
-      } else if (geo == "county" & !is.null(county_codes)) {
-        # county_codes should be character vector of full GEOIDs (state + county code)
-        county_codes <- as.character(county_codes)
-        df_filtered <- df %>% filter(GEOID %in% county_codes)
-        acs_list[[as.character(yr)]] <- df_filtered
-        
-      } else if (geo == "state") {
-        # for state geo, usually just one row
-        acs_list[[as.character(yr)]] <- df
-      } else {
-        message(glue::glue("⚠️ No matching codes provided for {geo}"))
-        acs_list[[as.character(yr)]] <- NULL
-      }
-    }, error = function(e) {
-      message(glue::glue("⚠️ Failed: {geo}, {state}, {yr} – {e$message}"))
-      acs_list[[as.character(yr)]] <- NULL
-    })
-  }
-  
-  combined_df <- bind_rows(acs_list)
-  return(combined_df)
-}
-
-
-# grouped_juris tibble with columns: state_code, Geo, filter_codes (list of GEOIDs)
-
-acs_years_vec <- c(2010, 2016, 2020, 2023)
-
-year_signed_default <- 2010
-last_year_default <- 2023
-
-# Run the batch pull:
-acs_data_all <- pmap_dfr(
-  list(
-    state = grouped_juris$state_code,
-    geo = grouped_juris$Geo,
-    codes = grouped_juris$filter_codes
-  ),
-  function(state, geo, codes) {
-    # Call your function, passing the codes either as place_codes or county_codes depending on geo
-    if (geo == "place") {
-      get_acs_filtered(
-        state = state,
-        geo = geo,
-        place_codes = codes,
-        year_signed = year_signed_default,
-        last_year = last_year_default,
-        acs_years = acs_years_vec
-      )
-    } else if (geo == "county") {
-      get_acs_filtered(
-        state = state,
-        geo = geo,
-        county_codes = codes,
-        year_signed = year_signed_default,
-        last_year = last_year_default,
-        acs_years = acs_years_vec
-      )
-    } else {
-      NULL
-    }
-  }
-)
-
 
 
 #### pull state data
@@ -512,9 +409,74 @@ any(st_is_empty(st_as_sfc(full_287g_data$geometry)))
 ### NAs in geometry --> 
 nas_geometry <- full_287g_data %>% select(GEOID, Place, State, geometry) %>% filter(is.na(geometry))
 nas_geometry$geometry <- NA
-write.csv(nas_geometry, "nas_geometry.csv")
+#write.csv(nas_geometry, "nas_geometry.csv")
 
 ### Inserting Filled Out GEo ----- >> ################ WIP RIGHT HERE -------->>>>>>>
+
+filled_geo <- read.csv("nas_geometry.csv")
+filled_geo$GEOID <- as.character(filled_geo$GEOID)
+filled_geo <- filled_geo %>%
+  mutate(GEOID = gsub('\"', '', GEOID))
+filled_geo <- filled_geo %>% left_join(state_codes, by = c("State" = "state"))
+
+### ERRORS ----------------------------------------------------------------------> COME BACK TO THIS TO CREATE MAPS WITH ACC SPOTS 
+
+# geo_fills <- pmap_dfr(
+#   .l = filled_geo,
+#   .f = function(state_code, GEOID, ...) {
+#     if (is.na(GEOID)) {
+#       return(tibble(GEOID = NA_character_, geometry = NA))
+#     }
+#     
+#     state_code_str <- str_pad(state_code, 2, pad = "0")
+#     GEOID_str <- str_pad(as.character(GEOID), width = nchar(as.character(GEOID)), pad = "0")
+#     
+#     result <- NULL
+#     
+#     if (nchar(GEOID_str) == 5) {
+#       county_code_str <- str_sub(GEOID_str, 3, 5)
+#       result <- tryCatch(
+#         get_county_geo(state_code_str, county_code_str),
+#         error = function(e) NULL
+#       )
+#     } else if (nchar(GEOID_str) == 7) {
+#       # full GEOID_str is the place code
+#       place_code_str <- str_sub(GEOID_str, 2, 7)  # optional: just use GEOID_str if already clean
+#       result <- tryCatch(
+#         get_place_geo(state_code_str, place_code_str),
+#         error = function(e) NULL
+#       )
+#     } else if (nchar(GEOID_str) == 10) {
+#       sub_code <- str_sub(GEOID_str, 6, 10)
+#       result <- tryCatch(
+#         get_sub_geo(state_code_str, sub_code),
+#         error = function(e) NULL
+#       )
+#     }
+#     
+#     if (is.null(result)) {
+#       return(tibble(GEOID = GEOID_str, geometry = NA))
+#     }
+#     
+#     return(result)
+#   }
+# )
+
+
+### This county -> was present in march 2025 ICE docs, gone by May 2025 --> KEPT as NAs 
+full_287g_data$Year_Signed <- ifelse(full_287g_data$Place == "Crow Wing County" & full_287g_data$State == "MA", NA_real_, 
+                                     full_287g_data$Year_Signed)
+
+### Filling in GEOIDs --->
+full_287g_data <- full_287g_data %>% left_join(filled_geo, by = c("Place",
+                                                                  "State")) 
+full_287g_data <- full_287g_data %>%  mutate(GEOID = coalesce(GEOID.x, GEOID.y)) %>%
+  select(-GEOID.x, -GEOID.y)
+
+full_287g_clean <- full_287g_data %>% select(-c(geometry.y, X, state_code.y)) %>%
+  mutate(geometry = geometry.x,
+         state_code = state_code.x)
+
 
 any(st_is_empty(final_hist_287g))
 any(!st_is_valid(final_hist_287g))
@@ -523,6 +485,110 @@ st_write(final_hist_287g, "cleaned_287g_data.shp")
 
 
 ## Adding Census -------------------------------------------------------------->
+###### Subsetting & grouping by county / place ----
+grouped_juris <- full_287g_clean %>%
+  group_by(state_code, Geo) %>%
+  summarise(filter_codes = list(GEOID), .groups = "drop")
+
+###### Pulling the data --------------------------------------------------------
+get_acs_filtered <- function(state, geo, place_codes = NULL, county_codes = NULL,
+                             year_signed, last_year,
+                             vars = c("B01003_001", "B03001_003", "B05002_013"),
+                             acs_years = c(2010, 2016, 2020, 2023)) {
+  
+  valid_years <- acs_years[acs_years >= year_signed & acs_years <= last_year]
+  
+  if (length(valid_years) == 0) {
+    message(glue::glue("⏩ Skipping {geo}, {state} – no ACS years fall within {year_signed}–{last_year}"))
+    return(NULL)
+  }
+  
+  acs_list <- list()
+  
+  for (yr in valid_years) {
+    tryCatch({
+      df <- get_acs(
+        geography = geo,
+        variables = vars,
+        year = yr,
+        state = state,
+        survey = "acs5",
+        output = "wide"
+      ) %>%
+        mutate(geo = geo, state_code = state, year = yr) %>%
+        mutate(GEOID = as.character(GEOID))
+      
+      if (geo == "place" & !is.null(place_codes)) {
+        # place_codes should be character vector of full GEOIDs (state + place code)
+        place_codes <- as.character(place_codes)
+        df_filtered <- df %>% filter(GEOID %in% place_codes)
+        acs_list[[as.character(yr)]] <- df_filtered
+        
+      } else if (geo == "county" & !is.null(county_codes)) {
+        # county_codes should be character vector of full GEOIDs (state + county code)
+        county_codes <- as.character(county_codes)
+        df_filtered <- df %>% filter(GEOID %in% county_codes)
+        acs_list[[as.character(yr)]] <- df_filtered
+        
+      } else if (geo == "state") {
+        # for state geo, usually just one row
+        acs_list[[as.character(yr)]] <- df
+      } else {
+        message(glue::glue("⚠️ No matching codes provided for {geo}"))
+        acs_list[[as.character(yr)]] <- NULL
+      }
+    }, error = function(e) {
+      message(glue::glue("⚠️ Failed: {geo}, {state}, {yr} – {e$message}"))
+      acs_list[[as.character(yr)]] <- NULL
+    })
+  }
+  
+  combined_df <- bind_rows(acs_list)
+  return(combined_df)
+}
+
+
+# grouped_juris tibble with columns: state_code, Geo, filter_codes (list of GEOIDs)
+
+acs_years_vec <- c(2010, 2016, 2020, 2023)
+
+year_signed_default <- 2010
+last_year_default <- 2023
+
+# Run the batch pull:
+acs_data_all <- pmap_dfr(
+  list(
+    state = grouped_juris$state_code,
+    geo = grouped_juris$Geo,
+    codes = grouped_juris$filter_codes
+  ),
+  function(state, geo, codes) {
+    # Call your function, passing the codes either as place_codes or county_codes depending on geo
+    if (geo == "place") {
+      get_acs_filtered(
+        state = state,
+        geo = geo,
+        place_codes = codes,
+        year_signed = year_signed_default,
+        last_year = last_year_default,
+        acs_years = acs_years_vec
+      )
+    } else if (geo == "county") {
+      get_acs_filtered(
+        state = state,
+        geo = geo,
+        county_codes = codes,
+        year_signed = year_signed_default,
+        last_year = last_year_default,
+        acs_years = acs_years_vec
+      )
+    } else {
+      NULL
+    }
+  }
+)
+
+full_census_data <- rbind(acs_data_all, state_acs_data)
 
 names(full_census_data)
 
@@ -623,17 +689,39 @@ census_wide <- clean_census %>%
     names_from = year,
               values_from = c(total_juris_pop, percent_latino, percent_foreign),
               names_sep = "_")
+names(full_287g_clean)
+names(census_wide)
 
-merged_287g_data <- fulL_287g_data %>%
+clean_287g <- full_287g_clean %>% select(-c(geometry.x, state_code.x, Type_Jurisdiction))
+
+merged_287g_data <- clean_287g %>%
   left_join(census_wide, by = "GEOID")
 
-# Create indicator for, say, 2020
-merged_data <- merged_data %>%
-  mutate(active_2020 = ifelse(Year_Signed <= 2020 & Last_Year >= 2020, 1, 0),
-         exp_2020 = case_when(
+#
+merged_data_287gINDs <- merged_287g_data %>%
+  mutate(
+    active_2010 = ifelse(Year_Signed <= 2008 & Last_Year >= 2012, 1, 0),        ## Active between 2008 - 2012 
+    exp_2010 = case_when(
+      active_2010 == 1 & percent_latino_2020 > 0.25 ~ -1,
+      active_2010 == 1 ~ -0.5,
+      TRUE ~ 0),
+    active_2016 = ifelse(Year_Signed <= 2016 & Last_Year >= 2012, 1, 0),        ## Active between 2012 - 2016
+    exp_2016 = case_when(
+      active_2016 == 1 & percent_latino_2020 > 0.25 ~ -1,
+      active_2016 == 1 ~ -0.5,
+      TRUE ~ 0),
+    active_2020 = ifelse(Year_Signed <= 2020 & Last_Year >= 2016, 1, 0),        ### Active between 2016 - 2020
+    exp_2020 = case_when(
            active_2020 == 1 & percent_latino_2020 > 0.25 ~ -1,
            active_2020 == 1 ~ -0.5,
-           TRUE ~ 0
-         ))
+           TRUE ~ 0),
+    active_2025 = ifelse(Year_Signed <= 2025 & Last_Year >= 2020, 1, 0),        ### Active between 2020 - 2025
+    exp_2025 = case_when(
+      active_2025 == 1 & percent_latino_2020 > 0.25 ~ -1,
+      active_2025 == 1 ~ -0.5,
+      TRUE ~ 0),
+    )
+full_287g_census <- merged_data_287gINDs %>% select(-c(geometry))               ## Version WITHOUT geometry data
 
+write.csv(full_287g_census, "full_data_287g_census_inds.csv")
 
