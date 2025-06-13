@@ -135,3 +135,41 @@ final_dataset <- bind_rows(final_data)
 ### OUTPUT ---- CSV FILE 
 
 write.csv(final_dataset, "final_bills_data.csv")
+
+#### Custom Geo Functions 
+
+get_place_geo <- function(state_fips, place_code) {
+  tryCatch({
+    pl <- tigris::places(state = state_fips, year = 2020) %>%
+      sf::st_transform(4326)  # Transform to WGS84
+    pl %>% filter(PLACEFP == place_code)
+  }, error = function(e) NULL)
+}
+
+get_sub_geo <- function(state_fips, place_code) {
+  tryCatch({
+    county_subs <- tigris::county_subdivisions(state = state_fips, year = 2020) %>%
+      sf::st_transform(4326)  # Transform to WGS84
+    county_subs %>% filter(GEOID == paste0(state_fips, place_code))
+  }, error = function(e) NULL)
+}
+
+get_county_geo <- function(state_fips, county_fips) {
+  tryCatch({
+    counties <- tigris::counties(state = state_fips, year = 2020) %>%
+      sf::st_transform(4326)  # Transform to WGS84
+    target_geoid <- paste0(state_fips, county_fips)
+    
+    match <- counties %>% dplyr::filter(GEOID == target_geoid)
+    
+    if (nrow(match) == 0) {
+      message(paste("No match for county GEOID:", target_geoid))
+      return(NULL)
+    }
+    
+    match
+  }, error = function(e) {
+    message(paste("get_county_geo failed:", e$message))
+    return(NULL)
+  })
+}
