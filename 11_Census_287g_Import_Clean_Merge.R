@@ -698,30 +698,123 @@ merged_287g_data <- clean_287g %>%
   left_join(census_wide, by = "GEOID")
 
 #
-merged_data_287gINDs <- merged_287g_data %>%
-  mutate(
-    active_2010 = ifelse(Year_Signed <= 2008 & Last_Year >= 2012, 1, 0),        ## Active between 2008 - 2012 
-    exp_2010 = case_when(
-      active_2010 == 1 & percent_latino_2020 > 0.25 ~ -1,
-      active_2010 == 1 ~ -0.5,
-      TRUE ~ 0),
-    active_2016 = ifelse(Year_Signed <= 2016 & Last_Year >= 2012, 1, 0),        ## Active between 2012 - 2016
-    exp_2016 = case_when(
-      active_2016 == 1 & percent_latino_2020 > 0.25 ~ -1,
-      active_2016 == 1 ~ -0.5,
-      TRUE ~ 0),
-    active_2020 = ifelse(Year_Signed <= 2020 & Last_Year >= 2016, 1, 0),        ### Active between 2016 - 2020
-    exp_2020 = case_when(
-           active_2020 == 1 & percent_latino_2020 > 0.25 ~ -1,
-           active_2020 == 1 ~ -0.5,
-           TRUE ~ 0),
-    active_2025 = ifelse(Year_Signed <= 2025 & Last_Year >= 2020, 1, 0),        ### Active between 2020 - 2025
-    exp_2025 = case_when(
-      active_2025 == 1 & percent_latino_2020 > 0.25 ~ -1,
-      active_2025 == 1 ~ -0.5,
-      TRUE ~ 0),
-    )
+merged_data_287gINDs <- merged_287g_data %>%                                    ### System --> Below 5% of latino/foreign pop --> -.10
+  mutate(                                                                       ### System --> Between 5-10% of latino/foreign pop --> -.25
+    # Define type multiplier: Warrant gets reduced penalty                      ### System --> Between 10-25% of latino/foreign pop --> -.5
+    type_multiplier = case_when(                                                ### System --> Above 25% of latino/foreign pop --> -1
+      Type_287g == "Warrant" ~ 0.95,                                            ### System --> If a "warrant type" multiplied by .25 
+      TRUE ~ 1
+    ),
+    # 2010 active and exposure based on percent_latino_2020
+    active_2010 = ifelse(Year_Signed <= 2008 & Last_Year >= 2012, 1, 0),
+    base_exp_2010 = case_when(
+      active_2010 == 1 & percent_latino_2010 >= 25 ~ -1,
+      active_2010 == 1 & percent_latino_2010 >= 10 ~ -0.75,
+      active_2010 == 1 & percent_latino_2010 >= 5  ~ -0.5,
+      active_2010 == 1 ~ -0.25,
+      TRUE ~ 0
+    ),
+    exp_lat_2010 = ifelse(Type_287g == "Warrant", base_exp_2010 * .95, base_exp_2010),
+    
+    # Alternative exposure for 2010 based on percent_foreign_2010
+    alt_base_exp_2010 = case_when(
+      active_2010 == 1 & percent_foreign_2010 >= 25 ~ -1,
+      active_2010 == 1 & percent_foreign_2010 >= 10 ~ -0.75,
+      active_2010 == 1 & percent_foreign_2010 >= 5  ~ -0.5,
+      active_2010 == 1 ~ -0.25,
+      TRUE ~ 0
+    ),
+   # exp_for_2010 = alt_base_exp_2010 * type_multiplier,
+    exp_for_2010 = ifelse(Type_287g == "Warrant", alt_base_exp_2010 * .95, alt_base_exp_2010),
+    
+    # 2016 active and exposure based on percent_latino_2020
+    active_2016 = ifelse(Year_Signed <= 2016 & Last_Year >= 2012, 1, 0),
+    base_exp_2016 = case_when(
+      active_2016 == 1 & percent_latino_2016 >= 25 ~ -1,
+      active_2016 == 1 & percent_latino_2016 >= 10 ~ -0.75,
+      active_2016 == 1 & percent_latino_2016 >= 5  ~ -0.5,
+      active_2016 == 1 ~ -.25,
+      TRUE ~ 0
+    ),
+    #exp_lat_2016 = base_exp_2016 * type_multiplier,
+   exp_lat_2016 = ifelse(Type_287g == "Warrant", base_exp_2016 * .95, base_exp_2016),
+    
+    # Alternative exposure for 2016 based on percent_foreign_2016
+    alt_base_exp_2016 = case_when(
+      active_2016 == 1 & percent_foreign_2016 >= 25 ~ -1,
+      active_2016 == 1 & percent_foreign_2016 >= 10 ~ -0.75,
+      active_2016 == 1 & percent_foreign_2016 >= 5  ~ -0.5,
+      active_2016 == 1 ~ -0.25,
+      TRUE ~ 0
+    ),
+    #exp_for_2016 = alt_base_exp_2016 * type_multiplier,
+   exp_for_2016 = ifelse(Type_287g == "Warrant", alt_base_exp_2016 * .95, alt_base_exp_2016),
+    # 2020 active and exposure based on percent_latino_2020
+    active_2020 = ifelse(Year_Signed <= 2020 & Last_Year >= 2016, 1, 0),
+    base_exp_2020 = case_when(
+      active_2020 == 1 & percent_latino_2020 >= 25 ~ -1,
+      active_2020 == 1 & percent_latino_2020 >= 10 ~ -0.75,
+      active_2020 == 1 & percent_latino_2020 >= 5  ~ -0.5,
+      active_2020 == 1 ~ -0.25,
+      TRUE ~ 0
+    ),
+    #exp_lat_2020 = base_exp_2020 * type_multiplier,
+   exp_lat_2020 = ifelse(Type_287g == "Warrant", base_exp_2020 * .95, base_exp_2020),
+   
+    # Alternative exposure for 2020 based on percent_foreign_2020
+    alt_base_exp_2020 = case_when(
+      active_2020 == 1 & percent_foreign_2020 >= 25 ~ -1,
+      active_2020 == 1 & percent_foreign_2020 >= 10 ~ -0.75,
+      active_2020 == 1 & percent_foreign_2020 >= 5  ~ -0.5,
+      active_2020 == 1 ~ -0.25,
+      TRUE ~ 0
+    ),
+    #exp_for_2020 = alt_base_exp_2020 * type_multiplier,
+   exp_for_2020 = ifelse(Type_287g == "Warrant", alt_base_exp_2020 * .95, alt_base_exp_2020),
+    # 2025 active and exposure based on percent_latino_2020
+    active_2025 = ifelse(Year_Signed <= 2025 & Last_Year >= 2020, 1, 0),
+    base_exp_2025 = case_when(
+      active_2025 == 1 & percent_latino_2023 >= 25 ~ -1,
+      active_2025 == 1 & percent_latino_2023 >= 10 ~ -0.75,
+      active_2025 == 1 & percent_latino_2023 >= 5  ~ -0.5,
+      active_2025 == 1 ~ -.25,
+      TRUE ~ 0
+    ),
+    #exp_lat_2025 = base_exp_2025 * type_multiplier,
+   exp_lat_2025 = ifelse(Type_287g == "Warrant", base_exp_2025 * .95, base_exp_2025),
+    # Alternative exposure for 2025 based on percent_foreign_2023 (using latest available)
+    alt_base_exp_2025 = case_when(
+      active_2025 == 1 & percent_foreign_2023 >= 25 ~ -1,
+      active_2025 == 1 & percent_foreign_2023 >= 10 ~ -0.75,
+      active_2025 == 1 & percent_foreign_2023 >= 5  ~ -0.5,
+      active_2025 == 1 ~ -0.25,
+      TRUE ~ 0
+    ),
+    #exp_for_2025 = alt_base_exp_2025 * type_multiplier
+   exp_for_2025 = ifelse(Type_287g == "Warrant", alt_base_exp_2025 * .95, alt_base_exp_2025),
+  )
+
 full_287g_census <- merged_data_287gINDs %>% select(-c(geometry))               ## Version WITHOUT geometry data
 
-write.csv(full_287g_census, "full_data_287g_census_inds.csv")
+write.csv(full_287g_census, "full_data_287g_census_inds.csv")                   ## Saving ---> 
+
+###### Summarizing across states to add to climate index -----------------------
+
+
+
+state_exp_summary <- full_287g_census %>%
+  group_by(State) %>%
+  summarise(
+    total_exp_lat_2010 = sum(exp_lat_2010, na.rm = TRUE),
+    total_exp_lat_2016 = sum(exp_lat_2016, na.rm = TRUE),
+    total_exp_lat_2020 = sum(exp_lat_2020, na.rm = TRUE),
+    total_exp_lat_2025 = sum(exp_lat_2025, na.rm = TRUE),
+    total_exp_for_2010 = sum(exp_for_2010, na.rm = TRUE),
+    total_exp_for_2016 = sum(exp_for_2016, na.rm = TRUE),
+    total_exp_for_2020 = sum(exp_lat_2020, na.rm = TRUE),
+    total_exp_for_2025 = sum(exp_lat_2025, na.rm = TRUE)
+  )
+
+write.csv(state_exp_summary, "states_287g_sums.csv")
+
 
