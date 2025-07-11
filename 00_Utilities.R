@@ -87,9 +87,9 @@ clean_and_extract_bill <- function(text) {
 
 ##### Automating through list of pdfs -----------------------------------------
 
-generalpath <- "Data_Immigration_Bills_2012_2020/"
+generalpath <- "Data_Immigration_Bills_2012_2025/"
 namesof.files <- c("BillsAdopted", "BillsEnacted")
-listofyears <- c(2012:2020)
+listofyears <- c(2020:2025)
 file_combinations <- expand.grid(name = namesof.files, year = listofyears)
 ## creating the paths & storing them
 file_paths <- paste0(generalpath, file_combinations$name, "_", file_combinations$year, ".pdf")
@@ -132,9 +132,11 @@ for (i in seq_along(file_paths)) {
 # Combine all extracted data into one final dataset
 final_dataset <- bind_rows(final_data)
 
+final_2025_bills <- final_dataset %>% filter(Year > 2020)
+
 ### OUTPUT ---- CSV FILE 
 
-write.csv(final_dataset, "final_bills_data.csv")
+write.csv(final_2025_bills, "final_bills_data_2025.csv")
 
 #### Custom Geo Functions 
 

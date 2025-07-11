@@ -16,6 +16,16 @@ sub_12_16_coded <- sub_12_16 %>%
   left_join(complete_training %>% select(Bill_Number, Class), by = "Bill_Number")
 write.csv(sub_12_16_coded, "coding_2012_2016.csv")
 
+### 2016 - 2020 bills 
+
+sub_16_20 <- cleaned_text_set %>% filter(Year %in% 2017:2020)
+sub_16_20 <- sub_16_20[,-c(13:20)]
+sub_16_20_coded <- sub_16_20 %>%
+  left_join(complete_training %>% select(Bill_Number, Class), by = "Bill_Number")
+
+write.csv(sub_16_20_coded, "coding_2016_2020.csv")
+
+
 ### re-importing to clean up indicator 
 
 cleaned_text_full <- read.csv("coding_2012_2016_full.csv")

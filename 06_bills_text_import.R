@@ -1,7 +1,7 @@
 
 ######## Trying first with 2012 (Debugging) ------------------------------------
-enacted_2012 <-pdf_text("Data_Immigration_Bills_2012_2020/BillsEnacted_2012.pdf")
-adopted_2012 <-pdf_text("Data_Immigration_Bills_2012_2020/BillsAdopted_2012.pdf")
+enacted_2012 <-pdf_text("Data_Immigration_Bills_2012_2025/BillsEnacted_2012.pdf")
+adopted_2012 <-pdf_text("Data_Immigration_Bills_2012_2025/BillsAdopted_2012.pdf")
 
 
 #textenacted2012 <- paste(enacted_2012, collapse = " ")
@@ -17,10 +17,10 @@ rawadopted2012 <- clean_and_extract_bill(billadopted_2012)
 
 ##### Automating through list of pdfs -----------------------------------------
 
-# generalpath <- "Data_Immigration_Bills_2012_2020/"
-# namesof.files <- c("BillsAdopted", "BillsEnacted")
-# listofyears <- c(2012:2020)
-# file_combinations <- expand.grid(name = namesof.files, year = listofyears)
+generalpath <- "Data_Immigration_Bills_2012_2025/"
+namesof.files <- c("BillsAdopted", "BillsEnacted")
+listofyears <- c(2020:2025) ## switched out to 2020-2025 
+file_combinations <- expand.grid(name = namesof.files, year = listofyears)
 ## creating the paths & storing them
 file_paths_txt <- paste0(generalpath, file_combinations$name, "_", file_combinations$year,"_preprocessed.txt")
 
@@ -32,12 +32,12 @@ process_txt_file <- function(file_path) {
   cleaned_text <- paste(file_text, collapse = " ")  # Collapse into a single string if necessary
   
   # Step 3: Process the cleaned text as needed
-  #processed_text <- process_pdf_file(cleaned_text)  # You can use process_pdf_file function here
+  #processed_text <- process_pdf_file(cleaned_text)  # can use process_pdf_file function here
   
   return(cleaned_text)
 }
 
-# Apply this function to all files in your list
+# Apply this function to all files in list
 cleaned_text_list <- map(file_paths_txt, ~ {
   process_txt_file(.x)  # Read and process each .txt file
 })
@@ -60,6 +60,9 @@ na_counts_dplyr <- extracted_data %>%
 ### Writing CSV --------------
 
 write.csv(extracted_data, "full_bills_data.csv")
+
+### Re-running on 2020-2025 bills 
+
 
 
 
