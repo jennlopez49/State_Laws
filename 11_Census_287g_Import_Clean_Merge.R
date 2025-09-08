@@ -128,17 +128,17 @@ places_all <- places_all %>%
 
 juris_places <- places_only %>% left_join(places_all, by = c("state_code", "place_clean" = "name_clean"))
 
-## Pulling NAs to fill in manually ---> 
-
-place_NAs <- juris_places %>% filter(is.na(place_code) | is.na(GEOID))
-write.csv(place_NAs, "place_NAs.csv")
-
-### loading filled in NAs --->
-place_codes_rest <- read.csv("place_NAs.csv", encoding = "UTF-8") %>% 
-  mutate(
-    Place_Name = as.character(name),
-  )
-place_codes_rest$geometry <- NA
+## Pulling NAs to fill in manually --------------------------------------------- 
+# 
+# place_NAs <- juris_places %>% filter(is.na(place_code) | is.na(GEOID))
+# write.csv(place_NAs, "place_NAs.csv")
+# 
+# ### loading filled in NAs --->
+# place_codes_rest <- read.csv("place_NAs.csv", encoding = "UTF-8") %>% 
+#   mutate(
+#     Place_Name = as.character(name),
+#   )
+# place_codes_rest$geometry <- NA
 
 ### Filling in Geometry ----> 
 get_place_geo <- function(state_fips, place_code) {
@@ -494,7 +494,7 @@ grouped_juris <- full_287g_clean %>%
 get_acs_filtered <- function(state, geo, place_codes = NULL, county_codes = NULL,
                              year_signed, last_year,
                              vars = c("B01003_001", "B03001_003", "B05002_013"),
-                             acs_years = c(2010, 2016, 2020, 2023)) {
+                             acs_years = c(2010, 2014, 2016, 2020, 2023)) {
   
   valid_years <- acs_years[acs_years >= year_signed & acs_years <= last_year]
   

@@ -33,6 +33,7 @@ cleaned_text_full <- read.csv("coding_2012_2016_full.csv")
 df_cleaned <- cleaned_text_full %>%
   distinct(Year, processed_Summary, .keep_all = TRUE)
 
+
 df_associated_bills <- df_cleaned %>%
   filter(str_detect(Full_Text, regex("associated bill", ignore_case = TRUE)))
 
@@ -90,15 +91,35 @@ df_concrete_indicators <- df_concrete_policies %>%
 # View the resulting dataset
 head(df_concrete_indicators)
 
+
+# --- NEW PART: Split by periods ---
+# 2012–2014 indicator
+df_concrete_indicators_2012_2014 <- df_concrete_policies %>%
+  filter(Year >= 2012 & Year <= 2014) %>%
+  group_by(State) %>%
+  summarise(Imm_Code_Pts_2012_2014 = sum(Imm_Class_Code, na.rm = TRUE))
+
+# 2014–2016 indicator
+df_concrete_indicators_2014_2016 <- df_concrete_policies %>%
+  filter(Year > 2014 & Year <= 2016) %>%
+  group_by(State) %>%
+  summarise(Imm_Code_Pts_2014_2016 = sum(Imm_Class_Code, na.rm = TRUE))
+
+### Final full ------ 
+df_final <- df_state_summary %>%
+  left_join(df_concrete_indicators, by = "State") %>%
+  left_join(df_concrete_indicators_2012_2014, by = "State") %>%
+  left_join(df_concrete_indicators_2014_2016, by = "State") %>%
+  mutate(
+    Imm_Class_2016 = replace_na(Imm_Class_2016, 0),
+    Imm_Code_Pts_2012_2014 = replace_na(Imm_Code_Pts_2012_2014, 0),
+    Imm_Code_Pts_2014_2016 = replace_na(Imm_Code_Pts_2014_2016, 0)
+  )
+
 ## csv file 
-
-full_indicators <- inner_join(
-  df_concrete_indicators, 
-  df_state_summary, 
-  by = "State"
-)
-
-colnames(full_indicators) <- c("State", "Imm_Class_Concrete_2016", "Imm_Class_Full_2016")
-
-write.csv(full_indicators, "full_indicators_2016.csv")
+## redo---- 
+colnames(df_final) <- c("State", "Imm_Class_Full_2016", "Imm_Class_Conc_2016",
+                               "Imm_Class_2012_2014", "Imm_Class_2014_2016")
+# old file - write.csv(df_final, "full_indicators_2016.csv")
+write.csv(df_final, "df_final_2016.csv")
 
