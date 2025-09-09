@@ -175,3 +175,59 @@ get_county_geo <- function(state_fips, county_fips) {
     return(NULL)
   })
 }
+
+get_acs_filtered <- function(state, geo, place_codes = NULL, county_codes = NULL,
+                             year_signed, last_year,
+                             vars = c("B01003_001", "B03001_003", "B05002_013"),
+                             acs_years = c(2010, 2014, 2016, 2020, 2023)) {
+  
+  valid_years <- acs_years[acs_years >= year_signed & acs_years <= last_year]
+  
+  if (length(valid_years) == 0) {
+    message(glue::glue("⏩ Skipping {geo}, {state} – no ACS years fall within {year_signed}–{last_year}"))
+    return(NULL)
+  }
+  
+  acs_list <- list()
+  
+  for (yr in valid_years) {
+    tryCatch({
+      df <- get_acs(
+        geography = geo,
+        variables = vars,
+        year = yr,
+        state = state,
+        survey = "acs5",
+        output = "wide"
+      ) %>%
+        mutate(geo = geo, state_code = state, year = yr) %>%
+        mutate(GEOID = as.character(GEOID))
+      
+      if (geo == "place" & !is.null(place_codes)) {
+        # place_codes should be character vector of full GEOIDs (state + place code)
+        place_codes <- as.character(place_codes)
+        df_filtered <- df %>% filter(GEOID %in% place_codes)
+        acs_list[[as.character(yr)]] <- df_filtered
+        
+      } else if (geo == "county" & !is.null(county_codes)) {
+        # county_codes should be character vector of full GEOIDs (state + county code)
+        county_codes <- as.character(county_codes)
+        df_filtered <- df %>% filter(GEOID %in% county_codes)
+        acs_list[[as.character(yr)]] <- df_filtered
+        
+      } else if (geo == "state") {
+        # for state geo, usually just one row
+        acs_list[[as.character(yr)]] <- df
+      } else {
+        message(glue::glue("⚠️ No matching codes provided for {geo}"))
+        acs_list[[as.character(yr)]] <- NULL
+      }
+    }, error = function(e) {
+      message(glue::glue("⚠️ Failed: {geo}, {state}, {yr} – {e$message}"))
+      acs_list[[as.character(yr)]] <- NULL
+    })
+  }
+  
+  combined_df <- bind_rows(acs_list)
+  return(combined_df)
+}

@@ -123,3 +123,16 @@ colnames(df_final) <- c("State", "Imm_Class_Full_2016", "Imm_Class_Conc_2016",
 # old file - write.csv(df_final, "full_indicators_2016.csv")
 write.csv(df_final, "df_final_2016.csv")
 
+
+find_csv_creator <- function(csv_name) {
+  for (f in list.files(".", pattern = "\\.R$", recursive = TRUE)) {
+    lines <- readLines(f, warn = FALSE)
+    if (any(grepl(csv_name, lines, fixed = TRUE))) {
+      cat("Found in:", f, "\n")
+    }
+  }
+}
+
+# Example: search for where final_dataset.csv is written
+find_csv_creator("scores_final.csv")
+
