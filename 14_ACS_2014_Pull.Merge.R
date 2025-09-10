@@ -448,3 +448,44 @@ merged_data_287gINDs <- final_census_data %>%                                   
 ### full copy of data before indicator ---- 
 write.csv(merged_data_287gINDs, "full_final_census.csv")
 
+
+### 
+state_exp_summary <- merged_data_287gINDs %>%
+  group_by(state_code.x) %>%
+  summarise(
+    total_exp_lat_2010 = sum(exp_lat_2010, na.rm = TRUE),
+    total_exp_lat_2014 = sum(exp_lat_2014, na.rm = TRUE),
+    total_exp_lat_2016 = sum(exp_lat_2016, na.rm = TRUE),
+    total_exp_lat_2020 = sum(exp_lat_2020, na.rm = TRUE),
+    total_exp_lat_2025 = sum(exp_lat_2025, na.rm = TRUE),
+    total_exp_for_2010 = sum(exp_for_2010, na.rm = TRUE),
+    total_exp_for_2014 = sum(exp_for_2014, na.rm = TRUE),
+    total_exp_for_2016 = sum(exp_for_2016, na.rm = TRUE),
+    total_exp_for_2020 = sum(exp_lat_2020, na.rm = TRUE),
+    total_exp_for_2025 = sum(exp_lat_2025, na.rm = TRUE)
+  )
+
+states <- tidycensus::fips_codes %>%
+  dplyr::select(state, state_code, state_name = state_name)
+
+states <- states[!duplicated(states),]
+
+# getting rid of territories 
+states <- states %>% filter(state_code < 57)
+
+# joining & adding 0s for states that did not have an agremeent across these periods
+
+states <- states %>%
+  mutate(state_code = as.numeric(state_code)) %>%
+  select(state_code, state, state_name)
+
+# Full join: keep all states, fill missing with 0
+state_exp_full <- states %>%
+  left_join(state_exp_summary, by = c("state_code" = "state_code.x")) %>%
+  mutate(across(starts_with("total_exp_"), ~ replace_na(., 0)))
+
+head(state_exp_full)
+
+### full state indicators --- summed 
+
+write.csv(state_exp_full, "state_exp_full.csv")
